@@ -28,4 +28,48 @@ dependecies with nultiple versions and having multiple versions of the same laye
 it really starts to look like we are just uploading a standalone code (as from the start) but with extra steps.
 In fact its so error prone that the standard has become to just provide images which handles all the dependcies
 so that we dont have to posion ourselfs with layers which just demonstrates my point that they are evil.
-So to answer with one sentence - yes we doint support layers, but the community doesnt seem to like them either 
+So to answer with one sentence - yes we doint support layers, but the community doesnt seem to like them either
+
+
+
+
+
+# How It Works
+## Architecture
+We took a lot from the aws lambda architecture but it basically functions in the foillowing way 
+![image](https://github.com/user-attachments/assets/8817cf86-bc8e-4bdd-a579-5ed84072369e)
+
+
+So when we send a req to invokde a certain lambda we first hit a server which decides whether to spawn a new instance to handle the req or forward it to an existing one (there are three options for configuring this, see routing options for details) from there it sends the data that needs to be present for the handler (idk if we need to wrap each lambda handler in an api so that we can reuse instances) and the handler returns result which you recieve
+
+
+## Scheduler 
+The role of this piece of code is to decide what to do with a lmabda when it  has finished (when a lambda finfishes execution or is forcefully stopped more details or lambda handlers internals below) it has two three options -> keep alive, kill or invoke
+- keep alive: it tells the handler to be idle for `x` amount of ms and when it finishes it again asks the scheduler for what to do (design decision - you should decide whether lambdas will supervise themselfs e,g, you run the code as a subprocess of a process which takes care of all the other things and just operates based on messages from the scheduler or the scheduler kills them )
+-  kill: it kills the instance
+-  invoke: it invokes the lambda again
+
+## Lambda Handler internals 
+Basically every node has uploaded code which starts automatically which spawns a grpc server which has an endpoint called `do` which can accept one of the three scheduler operations and decided what to do, also before being able to accept requests the server fetches the code for its handler (this shouldnt be a concern since no one should send requests to the handler). 
+
+Code fetching logic: to avoid the need of making dynamic code genration to put in the lambda e,g, to avoid the need of a preprocessor that we replace or put a string as code (ask me to explain it again) we have the following startagy a lambda will reach to a remote server from which it will grab the code as a file and run it
+
+example code
+```rs 
+def main():
+  file = getFile()
+  runFileAsWebAsmHAndler(file)
+  loop:
+    acceptCommand();
+  
+
+
+```
+
+
+
+## Routing options
+There are three options:
+- cuaotm: Upload your code which decides whether to send it to an existing instance or spawn a new one (you get access to how much time  has passed since each lambda handler has started executing in ms in the function arg)
+- default: use our algo for deciding 
+- ai: we have an ai which has access to the data you send to a lambda handler and the time a lambda needed to complete and from this data it learns based on the data supplied and all the current executions times of lambdas whether it is better to wait for a lambda to finish ir spawn a new instance (e.g. it checks if the cold start of a lambda is worth it over just waiting for an already started lambda to finsih to deliever the best outcome). Another metrics to which the ai has access to is your traffic petterns e.g. by timestamp how much much requests you have recieved at this time (this too helps for deciding if it is better to start a lambda since it ousl be bad for the ai to wait a few times introducing a hrottle annd from there picking up)
