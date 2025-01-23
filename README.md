@@ -42,6 +42,9 @@ We took a lot from the aws lambda architecture but it basically functions in the
 
 So when we send a req to invokde a certain lambda we first hit a server which decides whether to spawn a new instance to handle the req or forward it to an existing one (there are three options for configuring this, see routing options for details) from there it sends the data that needs to be present for the handler (idk if we need to wrap each lambda handler in an api so that we can reuse instances) and the handler returns result which you recieve
 
+## JVM like
+WebAsm is just like JVM but it's also good :)
+
 
 ## Scheduler 
 The role of this piece of code is to decide what to do with a lmabda when it  has finished (when a lambda finfishes execution or is forcefully stopped more details or lambda handlers internals below) it has two three options -> keep alive, kill or invoke
